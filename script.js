@@ -1,3 +1,27 @@
+import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.13.0/firebase-app.js';
+import {
+  getFirestore,
+  collection,
+  addDoc,
+  query,
+  orderBy,
+  limit,
+  getDocs,
+} from 'https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js';
+
+// Ranking global: Firebase Firestore
+const firebaseConfig = {
+  apiKey: 'AIzaSyCKX6PE34ABjR67l78blEds5Qnoirm3VoY',
+  authDomain: 'corefall-clickadventure.firebaseapp.com',
+  projectId: 'corefall-clickadventure',
+  storageBucket: 'corefall-clickadventure.firebasestorage.app',
+  messagingSenderId: '382922451325',
+  appId: '1:382922451325:web:4e9e8efe719aefcf348414',
+};
+
+const firebaseApp = initializeApp(firebaseConfig);
+const db = getFirestore(firebaseApp);
+
 const homeScreen = document.getElementById('home-screen');
 const gameScreen = document.getElementById('game-screen');
 const nameModal = document.getElementById('name-modal');
@@ -64,6 +88,7 @@ const DEFAULT_STATS = {
   chestsOpened: { comum: 0, raro: 0, epico: 0 },
   totalGoldEarned: 0,
   itemsObtained: 0,
+  bestTime: null,
 };
 
 function generateItemId() {
@@ -124,7 +149,6 @@ if (playerName) {
 const statsList = document.getElementById('stats-list');
 
 function renderStats() {
-  const bestTime = JSON.parse(localStorage.getItem('dc_ranking') || '[]')[0];
   const rows = [
     ['Jogadas iniciadas', stats.sessionsStarted],
     ['Fases completadas', stats.phasesCompleted],
@@ -135,7 +159,7 @@ function renderStats() {
     ['Itens obtidos', stats.itemsObtained],
     ['Ouro total ganho', stats.totalGoldEarned],
     ['Ouro atual', gold],
-    ['Melhor tempo', bestTime ? formatTime(bestTime.time) : '—'],
+    ['Meu melhor tempo', stats.bestTime ? formatTime(stats.bestTime) : '—'],
   ];
 
   statsList.innerHTML = '';
@@ -183,35 +207,53 @@ function formatTime(ms) {
   return minutes > 0 ? `${minutes}m ${seconds}s` : `${seconds}s`;
 }
 
-function recordRankingEntry() {
-  if (!phaseStartTime) return;
+async function recordRankingEntry() {
+  if (!phaseStartTime) return null;
   const elapsedMs = Date.now() - phaseStartTime;
-  const ranking = JSON.parse(localStorage.getItem('dc_ranking') || '[]');
-  ranking.push({ name: playerName || 'Aventureiro', time: elapsedMs });
-  ranking.sort((a, b) => a.time - b.time);
-  localStorage.setItem('dc_ranking', JSON.stringify(ranking.slice(0, 10)));
   phaseStartTime = null;
-}
 
-function renderRanking() {
-  const ranking = JSON.parse(localStorage.getItem('dc_ranking') || '[]');
-  rankingList.innerHTML = '';
-
-  if (ranking.length === 0) {
-    rankingList.innerHTML = '<p class="placeholder-text">Nenhum recorde ainda. Complete uma fase (10 barras) pra entrar no ranking!</p>';
-    return;
+  try {
+    await addDoc(collection(db, 'rankings'), {
+      name: playerName || 'Aventureiro',
+      time: elapsedMs,
+      createdAt: Date.now(),
+    });
+  } catch (err) {
+    console.error('Não foi possível enviar o tempo pro ranking global:', err);
   }
 
-  ranking.forEach((entry, index) => {
-    const row = document.createElement('div');
-    row.className = 'ranking-item';
-    row.innerHTML = `
-      <span class="ranking-pos">${index + 1}º</span>
-      <span class="ranking-name">${entry.name}</span>
-      <span class="ranking-time">${formatTime(entry.time)}</span>
-    `;
-    rankingList.appendChild(row);
-  });
+  return elapsedMs;
+}
+
+async function renderRanking() {
+  rankingList.innerHTML = '<p class="placeholder-text">Carregando...</p>';
+
+  try {
+    const rankingQuery = query(collection(db, 'rankings'), orderBy('time', 'asc'), limit(10));
+    const snapshot = await getDocs(rankingQuery);
+
+    if (snapshot.empty) {
+      rankingList.innerHTML = '<p class="placeholder-text">Nenhum recorde ainda. Complete uma fase (10 barras) pra entrar no ranking!</p>';
+      return;
+    }
+
+    rankingList.innerHTML = '';
+    let position = 0;
+    snapshot.forEach((doc) => {
+      position++;
+      const entry = doc.data();
+      const row = document.createElement('div');
+      row.className = 'ranking-item';
+      row.innerHTML = `
+        <span class="ranking-pos">${position}º</span>
+        <span class="ranking-name">${entry.name}</span>
+        <span class="ranking-time">${formatTime(entry.time)}</span>
+      `;
+      rankingList.appendChild(row);
+    });
+  } catch (err) {
+    rankingList.innerHTML = '<p class="placeholder-text">Não foi possível carregar o ranking. Verifique sua conexão.</p>';
+  }
 }
 
 document.getElementById('btn-ranking').addEventListener('click', () => {
@@ -221,11 +263,6 @@ document.getElementById('btn-ranking').addEventListener('click', () => {
 
 document.getElementById('btn-close-ranking').addEventListener('click', () => {
   rankingModal.classList.add('hidden');
-});
-
-document.getElementById('btn-clear-ranking').addEventListener('click', () => {
-  localStorage.removeItem('dc_ranking');
-  renderRanking();
 });
 
 document.getElementById('btn-share').addEventListener('click', async () => {
@@ -542,7 +579,12 @@ coreBtn.addEventListener('click', () => {
     openChest();
 
     if (completedBars >= TOTAL_BARS) {
-      recordRankingEntry();
+      recordRankingEntry().then((elapsedMs) => {
+        if (elapsedMs !== null && (stats.bestTime === null || elapsedMs < stats.bestTime)) {
+          stats.bestTime = elapsedMs;
+          saveProfile();
+        }
+      });
       stats.phasesCompleted++;
       saveProfile();
       btnBackMenu.classList.remove('hidden');

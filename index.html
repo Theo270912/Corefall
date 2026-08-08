@@ -68,14 +68,13 @@
     </div>
   </div>
 
-  <!-- Modal: ranking (local, por aparelho) -->
+  <!-- Modal: ranking (global, via Firebase) -->
   <div id="ranking-modal" class="modal hidden">
     <div class="modal-box inventory-box">
-      <h2>Ranking Local</h2>
-      <p class="placeholder-text">Menor tempo pra completar as 10 barras, neste aparelho</p>
+      <h2>Ranking Global</h2>
+      <p class="placeholder-text">Menor tempo pra completar as 10 barras, de todos os jogadores</p>
       <div id="ranking-list" class="inventory-list"></div>
       <div class="modal-actions">
-        <button id="btn-clear-ranking" class="menu-btn dev-only">Limpar Ranking</button>
         <button id="btn-close-ranking" class="menu-btn primary">Fechar</button>
       </div>
     </div>
@@ -145,6 +144,6 @@
     </div>
   </section>
 
-  <script src="script.js"></script>
+  <script type="module" src="script.js"></script>
 </body>
 </html>
