@@ -205,6 +205,15 @@ body.phase-active .flowers-layer {
   display: none !important;
 }
 
+/* Elementos só visíveis em modo dev (URL com ?dev=1) */
+.dev-only {
+  display: none;
+}
+
+body.dev-mode .dev-only {
+  display: inline-block;
+}
+
 /* Tela inicial */
 .home-col {
   display: flex;

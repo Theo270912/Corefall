@@ -5,6 +5,11 @@ const rankingModal = document.getElementById('ranking-modal');
 const nameInput = document.getElementById('name-input');
 const playerNameDisplay = document.getElementById('player-name-display');
 
+// Modo dev: só ativa com ?dev=1 na URL, esconde os controles de desenvolvedor dos jogadores comuns
+if (new URLSearchParams(window.location.search).get('dev') === '1') {
+  document.body.classList.add('dev-mode');
+}
+
 // Flores espalhadas aleatoriamente, sempre do mesmo tamanho, bem separadas (grid + jitter)
 const FLOWER_GRID_COLS = 6;
 const FLOWER_GRID_ROWS = 5;
